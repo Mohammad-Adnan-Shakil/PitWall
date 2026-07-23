@@ -181,7 +181,6 @@ def build_race_chunks(session, season):
         strategy_sequence = " → ".join(stint_compounds) if stint_compounds else "unknown"
         pit_stop_count = max(len(stint_compounds) - 1, 0)
 
-        print(f"DEBUG status value: {repr(status)}")
 
         text = (
     f"{driver} finished the {season} {event_name} in "
