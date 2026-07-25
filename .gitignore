@@ -2,3 +2,11 @@
 __pycache__/
 .env
 cache/
+frontend/node_modules/
+frontend/dist/
+naive_results.json
+agentic_results.json
+debug_db.py
+test_fastf1.py
+test_db_connection.py
+get_race.py

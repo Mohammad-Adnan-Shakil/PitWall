@@ -19,31 +19,33 @@ def retrieve(query, k=5, season_filter=None):
     query_embedding = model.encode(query).tolist()
 
     conn = psycopg2.connect(os.getenv("PITWALL_DB_URL"))
-    cur = conn.cursor()
+    try:
+        cur = conn.cursor()
 
-    if season_filter:
-        cur.execute(
-            "SELECT content, chunk_type, season, race, driver, "
-            "embedding <=> %s::vector AS distance "
-            "FROM pitwall_chunks "
-            "WHERE season = %s "
-            "ORDER BY embedding <=> %s::vector "
-            "LIMIT %s",
-            [query_embedding, season_filter, query_embedding, k]
-        )
-    else:
-        cur.execute(
-            "SELECT content, chunk_type, season, race, driver, "
-            "embedding <=> %s::vector AS distance "
-            "FROM pitwall_chunks "
-            "ORDER BY embedding <=> %s::vector "
-            "LIMIT %s",
-            [query_embedding, query_embedding, k]
-        )
+        if season_filter:
+            cur.execute(
+                "SELECT content, chunk_type, season, race, driver, "
+                "embedding <=> %s::vector AS distance "
+                "FROM pitwall_chunks "
+                "WHERE season = %s "
+                "ORDER BY embedding <=> %s::vector "
+                "LIMIT %s",
+                [query_embedding, season_filter, query_embedding, k]
+            )
+        else:
+            cur.execute(
+                "SELECT content, chunk_type, season, race, driver, "
+                "embedding <=> %s::vector AS distance "
+                "FROM pitwall_chunks "
+                "ORDER BY embedding <=> %s::vector "
+                "LIMIT %s",
+                [query_embedding, query_embedding, k]
+            )
 
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
+        rows = cur.fetchall()
+    finally:
+        cur.close()
+        conn.close()
 
     return [
         {
@@ -60,17 +62,19 @@ def retrieve(query, k=5, season_filter=None):
 
 def retrieve_race_summary(race_name, season):
     conn = psycopg2.connect(os.getenv("PITWALL_DB_URL"))
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT content, chunk_type, season, race, driver "
-        "FROM pitwall_chunks "
-        "WHERE chunk_type = 'race_summary' AND season = %s AND race ILIKE %s "
-        "LIMIT 1",
-        (season, f"%{race_name}%")
-    )
-    row = cur.fetchone()
-    cur.close()
-    conn.close()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT content, chunk_type, season, race, driver "
+            "FROM pitwall_chunks "
+            "WHERE chunk_type = 'race_summary' AND season = %s AND race ILIKE %s "
+            "LIMIT 1",
+            (season, f"%{race_name}%")
+        )
+        row = cur.fetchone()
+    finally:
+        cur.close()
+        conn.close()
     if row:
         return {
             "content": row[0],

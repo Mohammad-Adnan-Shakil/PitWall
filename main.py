@@ -53,6 +53,7 @@ class QueryResponse(BaseModel):
     retrieval_attempts: int
     sources: list[SourceChunk]
     latency_ms: float
+    drivers_mentioned: list[str]
 
 
 # ─── Routes ───────────────────────────────────────────────────────────────────
@@ -94,4 +95,5 @@ def query(request: QueryRequest):
         retrieval_attempts=result["retrieval_attempts"],
         sources=sources,
         latency_ms=round(elapsed, 2),
+        drivers_mentioned=result.get("drivers_mentioned", []),
     )

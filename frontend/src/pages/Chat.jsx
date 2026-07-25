@@ -504,6 +504,8 @@ function SourcesPanel({ sources, loading, lastQuestionType, driversMentioned }) 
   );
 }
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 export default function Chat() {
   const navigate = useNavigate();
   const [messages, setMessages] = useState([]);
@@ -533,7 +535,7 @@ export default function Chat() {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:8000/query", {
+      const res = await fetch(`${API_URL}/query`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: q }),
@@ -542,7 +544,7 @@ export default function Chat() {
       const data = await res.json();
 
       const rawAnswer = data.answer || "";
-      let displayAnswer = rawAnswer.startsWith("[Low confidence") || rawAnswer.startsWith("[Low confidence")
+      let displayAnswer = rawAnswer.startsWith("[Low confidence")
         ? rawAnswer.replace(/^\[Low confidence[^\]]*\]\s*/i, "")
         : rawAnswer;
       displayAnswer = displayAnswer.replace(/\[\d+\]/g, "").trim();

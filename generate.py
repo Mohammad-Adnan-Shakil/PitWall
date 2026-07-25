@@ -42,16 +42,19 @@ def answer_question(question, k=5):
 
 Question: {question}"""
 
-    response = client.chat.completions.create(
-        model="nvidia/nemotron-3-ultra-550b-a55b:free",
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=0.1,
-    )
+    try:
+        response = client.chat.completions.create(
+            model="nvidia/nemotron-3-ultra-550b-a55b:free",
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.1,
+        )
+        answer = response.choices[0].message.content
+    except Exception as e:
+        answer = f"I encountered an error while generating the answer: {str(e)}"
 
-    answer = response.choices[0].message.content
     return {
         "question": question,
         "answer": answer,
