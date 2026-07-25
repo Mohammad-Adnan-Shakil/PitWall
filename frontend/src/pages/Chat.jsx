@@ -56,16 +56,40 @@ function parsePitStopsFromContent(content) {
   const lines = content.split("\n");
   for (const line of lines) {
     const lapMatch = line.match(/\bLap\s*(\d+)\b/i);
-    const compoundMatch = line.match(/\b(SOFT|MEDIUM|HARD|INTERMEDIATE|WET)\b/i);
     const driverMatch = line.match(/\b([A-Z]{3})\b/);
-    if (lapMatch) {
-      stops.push({
-        lap: parseInt(lapMatch[1]),
-        driver: driverMatch ? driverMatch[1] : null,
-        compound: compoundMatch ? compoundMatch[1] : null,
-        text: line.trim(),
-      });
+    if (!lapMatch) continue;
+
+    const changeMatch = line.match(/changing from (\w+) to (\w+)/i);
+    const freshMatch = line.match(/fresh set of (\w+)/i);
+
+    let compoundBefore = null;
+    let compoundAfter = null;
+
+    if (changeMatch) {
+      const before = changeMatch[1].toUpperCase();
+      const after = changeMatch[2].toUpperCase();
+      if (["SOFT", "MEDIUM", "HARD", "INTERMEDIATE", "WET"].includes(before)) compoundBefore = before;
+      if (["SOFT", "MEDIUM", "HARD", "INTERMEDIATE", "WET"].includes(after)) compoundAfter = after;
+    } else if (freshMatch) {
+      const c = freshMatch[1].toUpperCase();
+      if (["SOFT", "MEDIUM", "HARD", "INTERMEDIATE", "WET"].includes(c)) compoundAfter = c;
+    } else {
+      const compounds = line.match(/\b(SOFT|MEDIUM|HARD|INTERMEDIATE|WET)\b/g);
+      if (compounds && compounds.length >= 2) {
+        compoundBefore = compounds[0];
+        compoundAfter = compounds[compounds.length - 1];
+      } else if (compounds && compounds.length === 1) {
+        compoundAfter = compounds[0];
+      }
     }
+
+    stops.push({
+      lap: parseInt(lapMatch[1]),
+      driver: driverMatch ? driverMatch[1] : null,
+      compoundBefore,
+      compoundAfter,
+      text: line.trim(),
+    });
   }
   return stops;
 }
@@ -95,8 +119,24 @@ function countPitStops(content) {
 
 /* ─── Tire Strategy Timeline ─── */
 
-function TireStrategyTimeline({ sources }) {
-  const raceChunks = sources.filter((c) => c.chunk_type === "race");
+function TireStrategyTimeline({ sources, lastQuestionType, driversMentioned }) {
+  let raceChunks = sources.filter((c) => c.chunk_type === "race");
+
+  if (lastQuestionType === "comparison" && driversMentioned?.length) {
+    const mentioned = new Set(driversMentioned.map((d) => d.toUpperCase()));
+    raceChunks = raceChunks.filter((c) => c.driver && mentioned.has(c.driver.toUpperCase()));
+  } else if (lastQuestionType === "strategy" || lastQuestionType === "race_result") {
+    const raceCounts = {};
+    for (const c of raceChunks) {
+      if (c.race) raceCounts[c.race] = (raceCounts[c.race] || 0) + 1;
+    }
+    const entries = Object.entries(raceCounts);
+    if (entries.length > 0) {
+      const dominantRace = entries.sort((a, b) => b[1] - a[1])[0][0];
+      raceChunks = raceChunks.filter((c) => c.race === dominantRace);
+    }
+  }
+
   const byDriver = {};
   for (const c of raceChunks) {
     if (!c.driver) continue;
@@ -104,7 +144,7 @@ function TireStrategyTimeline({ sources }) {
     byDriver[c.driver].push(c);
   }
   const drivers = Object.keys(byDriver);
-  if (drivers.length < 2) return null;
+  if (drivers.length === 0) return null;
 
   return (
     <div className="source-card" style={{
@@ -116,11 +156,14 @@ function TireStrategyTimeline({ sources }) {
         fontFamily: "JetBrains Mono, monospace", fontSize: "0.65rem",
         color: C.accent, letterSpacing: "0.1em", marginBottom: "0.75rem",
       }}>
-        STRATEGY COMPARISON
+        TIRE STRATEGY
       </div>
       {drivers.map((driver) => {
         const content = byDriver[driver].map((c) => c.content).join(" ");
-        const compounds = parseTireCompounds(content);
+        const strategyMatch = content.match(/Tire strategy: ([^.]+)/);
+        const compounds = strategyMatch
+          ? strategyMatch[1].split(/\s*→\s*/)
+          : [];
         const stops = countPitStops(content);
         if (compounds.length === 0) return null;
         return (
@@ -237,18 +280,19 @@ function PodiumCard({ sources }) {
 /* ─── Pit Stop Timeline ─── */
 
 function PitStopTimeline({ sources }) {
-  const pitStops = [];
+  const byDriver = {};
   for (const c of sources) {
-    if (c.chunk_type === "pit_stop") {
-      const parsed = parsePitStopsFromContent(c.content);
-      for (const ps of parsed) {
-        if (ps.driver) ps.driver = c.driver || ps.driver;
-        pitStops.push(ps);
-      }
+    if (c.chunk_type !== "pit_stop") continue;
+    const parsed = parsePitStopsFromContent(c.content);
+    for (const ps of parsed) {
+      const d = ps.driver || c.driver || "UNK";
+      if (!byDriver[d]) byDriver[d] = [];
+      byDriver[d].push(ps);
     }
   }
-  if (pitStops.length === 0) return null;
-  pitStops.sort((a, b) => a.lap - b.lap);
+  const driverCodes = Object.keys(byDriver);
+  if (driverCodes.length === 0) return null;
+  for (const d of driverCodes) byDriver[d].sort((a, b) => a.lap - b.lap);
 
   return (
     <div className="source-card" style={{
@@ -262,33 +306,77 @@ function PitStopTimeline({ sources }) {
       }}>
         PIT STOPS
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-        {pitStops.map((ps, i) => {
-          const compoundColor = COMPOUND_COLORS[ps.compound] || C.muted;
-          return (
-            <div key={i} style={{ display: "flex", gap: "0.5rem", alignItems: "stretch" }}>
-              <div style={{
-                fontFamily: "JetBrains Mono, monospace", fontSize: "0.7rem",
-                color: C.muted, fontWeight: 600, minWidth: "2rem",
-                textAlign: "right", paddingTop: "0.15rem",
-              }}>
-                LAP {ps.lap}
-              </div>
-              <div style={{
-                width: "2px", background: compoundColor,
-                borderRadius: "1px", opacity: 0.5,
-              }} />
-              <div style={{
-                flex: 1,
-                fontFamily: "Inter, sans-serif", fontSize: "0.75rem",
-                color: C.text, lineHeight: 1.5, padding: "0.15rem 0",
-              }}>
-                {ps.driver && <span style={{ fontFamily: "JetBrains Mono, monospace", color: C.accent, fontWeight: 600 }}>{ps.driver} </span>}
-                {ps.text}
-              </div>
+      <div style={{
+        display: "flex",
+        gap: "1rem",
+        flexDirection: driverCodes.length >= 2 ? "row" : "column",
+      }}>
+        {driverCodes.sort().map((driver) => (
+          <div key={driver} style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontFamily: "JetBrains Mono, monospace", fontWeight: 700,
+              fontSize: "0.75rem", color: C.accent, marginBottom: "0.5rem",
+              letterSpacing: "0.05em",
+            }}>
+              {driver}
             </div>
-          );
-        })}
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              {byDriver[driver].map((ps, i) => {
+                const newColor = ps.compoundAfter
+                  ? (COMPOUND_COLORS[ps.compoundAfter] || C.muted)
+                  : C.accent;
+                return (
+                  <div key={i} style={{ display: "flex", gap: "0.6rem", alignItems: "stretch" }}>
+                    <div style={{
+                      fontFamily: "JetBrains Mono, monospace", fontSize: "0.75rem",
+                      color: C.text, fontWeight: 700, minWidth: "3rem",
+                      textAlign: "right", paddingTop: "0.2rem",
+                      lineHeight: 1.3,
+                    }}>
+                      LAP<br />{ps.lap}
+                    </div>
+                    <div style={{
+                      width: "2px", background: "rgba(0,212,255,0.3)",
+                      borderRadius: "1px", flexShrink: 0,
+                    }} />
+                    <div style={{
+                      flex: 1, padding: "0.4rem 0.5rem",
+                      borderRadius: "6px",
+                      border: `1px solid ${C.border}`,
+                      borderLeft: `3px solid ${newColor}`,
+                      background: "rgba(0,212,255,0.04)",
+                    }}>
+                      {ps.driver && (
+                        <span style={{
+                          fontFamily: "JetBrains Mono, monospace", fontSize: "0.6rem",
+                          fontWeight: 600, padding: "0.1rem 0.4rem", borderRadius: "3px",
+                          background: "rgba(0,212,255,0.15)", color: C.accent,
+                          letterSpacing: "0.05em", textTransform: "uppercase",
+                          marginRight: "0.35rem",
+                        }}>
+                          {ps.driver}
+                        </span>
+                      )}
+                      {ps.compoundBefore && ps.compoundAfter && ps.compoundBefore !== ps.compoundAfter ? (
+                        <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: "0.7rem" }}>
+                          <span style={{ color: COMPOUND_COLORS[ps.compoundBefore] || C.text, fontWeight: 600 }}>{ps.compoundBefore}</span>
+                          <span style={{ color: C.muted, margin: "0 0.2rem" }}>→</span>
+                          <span style={{ color: COMPOUND_COLORS[ps.compoundAfter] || C.text, fontWeight: 600 }}>{ps.compoundAfter}</span>
+                        </span>
+                      ) : ps.compoundAfter ? (
+                        <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: "0.7rem", color: COMPOUND_COLORS[ps.compoundAfter] || C.text, fontWeight: 600 }}>
+                          {ps.compoundAfter} (fresh)
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: "0.7rem", color: C.muted }}>Pit stop</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -376,13 +464,10 @@ function ThinkingDots() {
 
 /* ─── Sources Panel ─── */
 
-function SourcesPanel({ sources, loading, lastQuestionType }) {
+function SourcesPanel({ sources, loading, lastQuestionType, driversMentioned }) {
   const smartComponent = useMemo(() => {
     if (!sources || sources.length === 0) return null;
 
-    if (lastQuestionType === "comparison") {
-      return <TireStrategyTimeline sources={sources} />;
-    }
     if (lastQuestionType === "race_result") {
       return <PodiumCard sources={sources} />;
     }
@@ -394,6 +479,7 @@ function SourcesPanel({ sources, loading, lastQuestionType }) {
 
   return (
     <>
+      <TireStrategyTimeline sources={sources} lastQuestionType={lastQuestionType} driversMentioned={driversMentioned} />
       {smartComponent}
       {sources.length === 0 && !loading && (
         <p style={{
@@ -427,6 +513,7 @@ export default function Chat() {
   const [hasStarted, setHasStarted] = useState(false);
   const [error, setError] = useState("");
   const [lastQuestionType, setLastQuestionType] = useState(null);
+  const [driversMentioned, setDriversMentioned] = useState([]);
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -470,6 +557,7 @@ export default function Chat() {
       };
       setMessages((prev) => [...prev, assistantMsg]);
       setLastQuestionType(data.question_type ?? "general");
+      setDriversMentioned(data.drivers_mentioned ?? []);
       if (data.sources) setSources(data.sources);
     } catch (e) {
       setError("Could not reach Pitwall API — is the server running?");
@@ -767,7 +855,7 @@ export default function Chat() {
               flex: 1, overflowY: "auto", padding: "1rem 1.25rem",
               display: "flex", flexDirection: "column", gap: "0.75rem",
             }}>
-              <SourcesPanel sources={sources} loading={loading} lastQuestionType={lastQuestionType} />
+              <SourcesPanel sources={sources} loading={loading} lastQuestionType={lastQuestionType} driversMentioned={driversMentioned} />
             </div>
           </div>
         </div>
