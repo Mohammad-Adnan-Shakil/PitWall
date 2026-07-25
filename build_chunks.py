@@ -2,7 +2,7 @@ import fastf1
 import pandas as pd
 import psycopg2
 import os
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 from dotenv import load_dotenv
 from psycopg2.extras import execute_values
 
@@ -256,14 +256,20 @@ def build_race_summary_chunk(session, season):
     }
 
 
+_embed_model = None
+
+def get_embed_model():
+    global _embed_model
+    if _embed_model is None:
+        _embed_model = TextEmbedding("BAAI/bge-small-en-v1.5")
+    return _embed_model
+
 def embed_chunks(chunks):
-    model = SentenceTransformer('all-MiniLM-L6-v2')  # 384-dim, matches our pgvector column
+    model = get_embed_model()
     texts = [c["content"] for c in chunks]
-    embeddings = model.encode(texts, show_progress_bar=True, batch_size=64)
-
+    embeddings = list(model.embed(texts))
     for chunk, embedding in zip(chunks, embeddings):
-        chunk["embedding"] = embedding.tolist()  # numpy array → plain list for DB insertion
-
+        chunk["embedding"] = embedding.tolist()
     return chunks
 
 load_dotenv()

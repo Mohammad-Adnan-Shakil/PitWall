@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 import psycopg2
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 
 load_dotenv()
 
@@ -10,41 +10,46 @@ _model = None
 def get_model():
     global _model
     if _model is None:
-        _model = SentenceTransformer('all-MiniLM-L6-v2')
+        _model = TextEmbedding("BAAI/bge-small-en-v1.5")
     return _model
 
 
-def retrieve(query, k=5, season_filter=None):
+def embed_text(text):
     model = get_model()
-    query_embedding = model.encode(query).tolist()
+    embeddings = list(model.embed([text]))
+    return embeddings[0].tolist()
+
+
+def retrieve(query, k=5, season_filter=None):
+    query_embedding = embed_text(query)
 
     conn = psycopg2.connect(os.getenv("PITWALL_DB_URL"))
     try:
         cur = conn.cursor()
-
-        if season_filter:
-            cur.execute(
-                "SELECT content, chunk_type, season, race, driver, "
-                "embedding <=> %s::vector AS distance "
-                "FROM pitwall_chunks "
-                "WHERE season = %s "
-                "ORDER BY embedding <=> %s::vector "
-                "LIMIT %s",
-                [query_embedding, season_filter, query_embedding, k]
-            )
-        else:
-            cur.execute(
-                "SELECT content, chunk_type, season, race, driver, "
-                "embedding <=> %s::vector AS distance "
-                "FROM pitwall_chunks "
-                "ORDER BY embedding <=> %s::vector "
-                "LIMIT %s",
-                [query_embedding, query_embedding, k]
-            )
-
-        rows = cur.fetchall()
+        try:
+            if season_filter:
+                cur.execute(
+                    "SELECT content, chunk_type, season, race, driver, "
+                    "embedding <=> %s::vector AS distance "
+                    "FROM pitwall_chunks "
+                    "WHERE season = %s "
+                    "ORDER BY embedding <=> %s::vector "
+                    "LIMIT %s",
+                    [query_embedding, season_filter, query_embedding, k]
+                )
+            else:
+                cur.execute(
+                    "SELECT content, chunk_type, season, race, driver, "
+                    "embedding <=> %s::vector AS distance "
+                    "FROM pitwall_chunks "
+                    "ORDER BY embedding <=> %s::vector "
+                    "LIMIT %s",
+                    [query_embedding, query_embedding, k]
+                )
+            rows = cur.fetchall()
+        finally:
+            cur.close()
     finally:
-        cur.close()
         conn.close()
 
     return [
@@ -64,17 +69,20 @@ def retrieve_race_summary(race_name, season):
     conn = psycopg2.connect(os.getenv("PITWALL_DB_URL"))
     try:
         cur = conn.cursor()
-        cur.execute(
-            "SELECT content, chunk_type, season, race, driver "
-            "FROM pitwall_chunks "
-            "WHERE chunk_type = 'race_summary' AND season = %s AND race ILIKE %s "
-            "LIMIT 1",
-            (season, f"%{race_name}%")
-        )
-        row = cur.fetchone()
+        try:
+            cur.execute(
+                "SELECT content, chunk_type, season, race, driver "
+                "FROM pitwall_chunks "
+                "WHERE chunk_type = 'race_summary' AND season = %s AND race ILIKE %s "
+                "LIMIT 1",
+                (season, f"%{race_name}%")
+            )
+            row = cur.fetchone()
+        finally:
+            cur.close()
     finally:
-        cur.close()
         conn.close()
+
     if row:
         return {
             "content": row[0],
@@ -85,13 +93,3 @@ def retrieve_race_summary(race_name, season):
             "distance": 0.0,
         }
     return None
-
-
-if __name__ == "__main__":
-    question = "How did Verstappen's tire strategy differ from Norris in the Belgian Grand Prix?"
-    results = retrieve(question, k=5)
-    print(f"Query: {question}\n")
-    for i, r in enumerate(results, 1):
-        print(f"{i}. [{r['chunk_type']}] (distance: {r['distance']:.4f})")
-        print(f"   {r['content']}")
-        print()
