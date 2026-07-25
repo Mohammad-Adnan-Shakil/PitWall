@@ -611,8 +611,10 @@ export default function Chat() {
             fontFamily: "Rajdhani, sans-serif", fontWeight: 700,
             fontSize: "1.25rem", letterSpacing: "0.15em",
             color: C.accent, background: "none", border: "none", cursor: "pointer",
+            display: "flex", alignItems: "center",
           }}
         >
+          <img src="/logo.svg" alt="Pitwall" style={{height: '28px', marginRight: '8px'}} />
           PITWALL
         </button>
         {hasStarted && (

@@ -133,6 +133,7 @@ export default function Landing() {
         borderBottom: `1px solid ${C.border}`,
       }}>
         <span style={{ fontFamily: "Rajdhani, sans-serif", fontWeight: 700, fontSize: "1.25rem", letterSpacing: "0.15em", color: C.accent }}>
+          <img src="/logo.svg" alt="Pitwall" style={{height: '28px', marginRight: '8px', verticalAlign: 'middle'}} />
           PITWALL
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: "2rem" }}>
