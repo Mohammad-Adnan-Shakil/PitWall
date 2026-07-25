@@ -16,9 +16,9 @@ export default function SonicWaveform() {
     resize();
     window.addEventListener("resize", resize);
 
-    const SIGNAL_GREEN = "#3BE07A";
-    const MID_GREEN = "#1A5C35";
-    const DARK_GREEN = "#0D2E1A";
+    const SIGNAL_BLUE = "#00D4FF";
+    const MID_BLUE = "#005A7A";
+    const DARK_BLUE = "#031420";
 
     function drawWave(yOffset, amplitude, frequency, speed, color, alpha, lineWidth) {
       ctx.beginPath();
@@ -26,7 +26,7 @@ export default function SonicWaveform() {
       ctx.globalAlpha = alpha;
       ctx.lineWidth = lineWidth;
       ctx.shadowBlur = 30;
-      ctx.shadowColor = SIGNAL_GREEN;
+      ctx.shadowColor = SIGNAL_BLUE;
 
       for (let x = 0; x <= canvas.width; x += 2) {
         const y =
@@ -46,25 +46,25 @@ export default function SonicWaveform() {
     function animate() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Background gradient — dark BRG tint
+      // Background gradient — dark carbon tint
       const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      grad.addColorStop(0, "#050F08");
-      grad.addColorStop(1, "#0A1A0F");
+      grad.addColorStop(0, "#060A10");
+      grad.addColorStop(1, "#111318");
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Deep background waves — 40% larger amplitude
-      drawWave(84,  49, 0.008, 0.4, DARK_GREEN, 0.4, 1.5);
-      drawWave(-84, 39, 0.010, 0.3, DARK_GREEN, 0.3, 1.2);
+      // Deep background waves
+      drawWave(84,  49, 0.008, 0.4, DARK_BLUE, 0.4, 1.5);
+      drawWave(-84, 39, 0.010, 0.3, DARK_BLUE, 0.3, 1.2);
 
       // Mid waves
-      drawWave(28,  70, 0.012, 0.6, MID_GREEN,    0.5, 1.2);
-      drawWave(-42, 59, 0.009, 0.5, MID_GREEN,    0.4, 1.0);
+      drawWave(28,  70, 0.012, 0.6, MID_BLUE,    0.5, 1.2);
+      drawWave(-42, 59, 0.009, 0.5, MID_BLUE,    0.4, 1.0);
 
-      // Main signal green waves — 40% larger amplitude, higher opacity
-      drawWave(0,   91, 0.014, 0.8, SIGNAL_GREEN, 1.0, 2.5);
-      drawWave(14,  77, 0.011, 0.7, SIGNAL_GREEN, 0.8, 1.8);
-      drawWave(-21, 63, 0.013, 0.9, SIGNAL_GREEN, 0.6, 1.4);
+      // Main signal blue waves
+      drawWave(0,   91, 0.014, 0.8, SIGNAL_BLUE, 1.0, 2.5);
+      drawWave(14,  77, 0.011, 0.7, SIGNAL_BLUE, 0.8, 1.8);
+      drawWave(-21, 63, 0.013, 0.9, SIGNAL_BLUE, 0.6, 1.4);
 
       time += 0.012;
       animationId = requestAnimationFrame(animate);

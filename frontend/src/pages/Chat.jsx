@@ -1,14 +1,14 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 
 const C = {
-  bg: "#0A1A0F",
-  accent: "#3BE07A",
+  bg: "#111318",
+  accent: "#00D4FF",
   text: "#F0F0F0",
   muted: "#9CA3AF",
-  border: "rgba(59,224,122,0.12)",
-  userBg: "#1A3D22",
+  border: "rgba(0,212,255,0.12)",
+  userBg: "#1A1D24",
   warnBg: "rgba(245,158,11,0.12)",
   warnBorder: "rgba(245,158,11,0.35)",
 };
@@ -25,19 +25,289 @@ const TYPE_STYLES = {
   stint:         { bg: "rgba(168,85,247,0.2)",  text: "#A78BFA" },
   pit_stop:      { bg: "rgba(251,146,60,0.2)",  text: "#FB923C" },
   race:          { bg: "rgba(34,197,94,0.2)",   text: "#22C55E" },
-  race_summary:  { bg: "rgba(59,224,122,0.2)",  text: "#3BE07A" },
+  race_summary:  { bg: "rgba(0,212,255,0.2)",   text: "#00D4FF" },
 };
 
-function ChunkCard({ chunk }) {
+const COMPOUND_COLORS = {
+  SOFT: "#FF3B3B",
+  MEDIUM: "#FFD700",
+  HARD: "#E0E0E0",
+  INTERMEDIATE: "#39FF14",
+  WET: "#00BFFF",
+};
+
+/* ─── Parsing helpers ─── */
+
+function parseTireCompounds(content) {
+  const order = [];
+  const re = /\b(SOFT|MEDIUM|HARD|INTERMEDIATE|WET)\b/g;
+  let m;
+  while ((m = re.exec(content)) !== null) {
+    const compound = m[1];
+    if (order.length === 0 || order[order.length - 1] !== compound) {
+      order.push(compound);
+    }
+  }
+  return order;
+}
+
+function parsePitStopsFromContent(content) {
+  const stops = [];
+  const lines = content.split("\n");
+  for (const line of lines) {
+    const lapMatch = line.match(/\bLap\s*(\d+)\b/i);
+    const compoundMatch = line.match(/\b(SOFT|MEDIUM|HARD|INTERMEDIATE|WET)\b/i);
+    const driverMatch = line.match(/\b([A-Z]{3})\b/);
+    if (lapMatch) {
+      stops.push({
+        lap: parseInt(lapMatch[1]),
+        driver: driverMatch ? driverMatch[1] : null,
+        compound: compoundMatch ? compoundMatch[1] : null,
+        text: line.trim(),
+      });
+    }
+  }
+  return stops;
+}
+
+function parsePodium(content) {
+  const result = { p1: null, p2: null, p3: null, wet: false, dry: true };
+  const podiumMatch = content.match(
+    /won by ([A-Z]{2,3}), with ([A-Z]{2,3}) in P2 and ([A-Z]{2,3}) in P3/
+  );
+  if (podiumMatch) {
+    const [_, p1, p2, p3] = podiumMatch;
+    result.p1 = p1;
+    result.p2 = p2;
+    result.p3 = p3;
+  }
+  if (/\b(WET|RAIN|RAINY|DAMP)\b/i.test(content)) {
+    result.wet = true;
+    result.dry = false;
+  }
+  return result;
+}
+
+function countPitStops(content) {
+  const m = content.match(/(\d+)\s*stop/i);
+  return m ? parseInt(m[1]) : null;
+}
+
+/* ─── Tire Strategy Timeline ─── */
+
+function TireStrategyTimeline({ sources }) {
+  const raceChunks = sources.filter((c) => c.chunk_type === "race");
+  const byDriver = {};
+  for (const c of raceChunks) {
+    if (!c.driver) continue;
+    if (!byDriver[c.driver]) byDriver[c.driver] = [];
+    byDriver[c.driver].push(c);
+  }
+  const drivers = Object.keys(byDriver);
+  if (drivers.length < 2) return null;
+
+  return (
+    <div className="source-card" style={{
+      border: `1px solid ${C.border}`,
+      borderRadius: "8px", padding: "1rem",
+      background: "rgba(0,212,255,0.03)",
+    }}>
+      <div style={{
+        fontFamily: "JetBrains Mono, monospace", fontSize: "0.65rem",
+        color: C.accent, letterSpacing: "0.1em", marginBottom: "0.75rem",
+      }}>
+        STRATEGY COMPARISON
+      </div>
+      {drivers.map((driver) => {
+        const content = byDriver[driver].map((c) => c.content).join(" ");
+        const compounds = parseTireCompounds(content);
+        const stops = countPitStops(content);
+        if (compounds.length === 0) return null;
+        return (
+          <div key={driver} style={{ marginBottom: "0.75rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.35rem" }}>
+              <span style={{
+                fontFamily: "JetBrains Mono, monospace", fontWeight: 700,
+                fontSize: "0.85rem", color: C.text, minWidth: "2.5rem",
+              }}>
+                {driver}
+              </span>
+            </div>
+            <div style={{ display: "flex", gap: "3px", borderRadius: "6px", overflow: "hidden" }}>
+              {compounds.map((cmp, i) => (
+                <div key={i} style={{
+                  flex: 1, padding: "0.3rem 0.25rem",
+                  background: COMPOUND_COLORS[cmp] || "#666",
+                  color: cmp === "MEDIUM" || cmp === "HARD" ? "#111" : "#FFF",
+                  fontSize: "0.6rem", fontFamily: "JetBrains Mono, monospace",
+                  fontWeight: 600, textAlign: "center", letterSpacing: "0.05em",
+                  whiteSpace: "nowrap",
+                }}>
+                  {cmp}
+                </div>
+              ))}
+            </div>
+            {stops !== null && (
+              <div style={{
+                fontFamily: "JetBrains Mono, monospace", fontSize: "0.6rem",
+                color: C.muted, marginTop: "0.2rem",
+              }}>
+                {stops} stop{stops !== 1 ? "s" : ""}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ─── Podium Card ─── */
+
+function PodiumCard({ sources }) {
+  const summary = sources.find((c) => c.chunk_type === "race_summary");
+  if (!summary) return null;
+  const podium = parsePodium(summary.content);
+  if (!podium.p1 && !podium.p2 && !podium.p3) return null;
+
+  const steps = [
+    { pos: "P2", driver: podium.p2, color: "#C0C0C0", height: "90px" },
+    { pos: "P1", driver: podium.p1, color: "#FFD700", height: "120px" },
+    { pos: "P3", driver: podium.p3, color: "#CD7F32", height: "75px" },
+  ];
+
+  return (
+    <div className="source-card" style={{
+      border: `1px solid ${C.border}`,
+      borderRadius: "8px", padding: "1rem",
+      background: "rgba(0,212,255,0.03)",
+    }}>
+      <div style={{
+        fontFamily: "JetBrains Mono, monospace", fontSize: "0.65rem",
+        color: C.accent, letterSpacing: "0.1em", marginBottom: "0.75rem",
+      }}>
+        RACE RESULT
+      </div>
+      <div style={{
+        display: "flex", alignItems: "flex-end", justifyContent: "center",
+        gap: "0.5rem", height: "8rem",
+      }}>
+        {steps.map((s) => (
+          <div key={s.pos} style={{
+            display: "flex", flexDirection: "column", alignItems: "center",
+            justifyContent: "flex-end", gap: "0.3rem",
+            width: "5rem", height: s.height,
+            background: `linear-gradient(to top, ${s.color}22, ${s.color}44)`,
+            border: `1px solid ${s.color}66`,
+            borderRadius: "6px 6px 0 0",
+            padding: "0.5rem 0.25rem",
+          }}>
+            <span style={{
+              fontFamily: "JetBrains Mono, monospace", fontWeight: 700,
+              fontSize: "1.2rem", color: s.color, lineHeight: 1,
+            }}>
+              {s.pos}
+            </span>
+            {s.driver && (
+              <span style={{
+                fontFamily: "JetBrains Mono, monospace", fontWeight: 700,
+                fontSize: "0.8rem", color: C.text, lineHeight: 1,
+              }}>
+                {s.driver}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+      {podium.wet && (
+        <div style={{
+          marginTop: "0.5rem", textAlign: "center",
+          fontFamily: "JetBrains Mono, monospace", fontSize: "0.6rem",
+          color: "#39FF14", padding: "0.15rem 0.5rem",
+          border: "1px solid rgba(57,255,20,0.3)", borderRadius: "4px",
+          display: "inline-block", background: "rgba(57,255,20,0.08)",
+        }}>
+          WET
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Pit Stop Timeline ─── */
+
+function PitStopTimeline({ sources }) {
+  const pitStops = [];
+  for (const c of sources) {
+    if (c.chunk_type === "pit_stop") {
+      const parsed = parsePitStopsFromContent(c.content);
+      for (const ps of parsed) {
+        if (ps.driver) ps.driver = c.driver || ps.driver;
+        pitStops.push(ps);
+      }
+    }
+  }
+  if (pitStops.length === 0) return null;
+  pitStops.sort((a, b) => a.lap - b.lap);
+
+  return (
+    <div className="source-card" style={{
+      border: `1px solid ${C.border}`,
+      borderRadius: "8px", padding: "1rem",
+      background: "rgba(0,212,255,0.03)",
+    }}>
+      <div style={{
+        fontFamily: "JetBrains Mono, monospace", fontSize: "0.65rem",
+        color: C.accent, letterSpacing: "0.1em", marginBottom: "0.75rem",
+      }}>
+        PIT STOPS
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        {pitStops.map((ps, i) => {
+          const compoundColor = COMPOUND_COLORS[ps.compound] || C.muted;
+          return (
+            <div key={i} style={{ display: "flex", gap: "0.5rem", alignItems: "stretch" }}>
+              <div style={{
+                fontFamily: "JetBrains Mono, monospace", fontSize: "0.7rem",
+                color: C.muted, fontWeight: 600, minWidth: "2rem",
+                textAlign: "right", paddingTop: "0.15rem",
+              }}>
+                LAP {ps.lap}
+              </div>
+              <div style={{
+                width: "2px", background: compoundColor,
+                borderRadius: "1px", opacity: 0.5,
+              }} />
+              <div style={{
+                flex: 1,
+                fontFamily: "Inter, sans-serif", fontSize: "0.75rem",
+                color: C.text, lineHeight: 1.5, padding: "0.15rem 0",
+              }}>
+                {ps.driver && <span style={{ fontFamily: "JetBrains Mono, monospace", color: C.accent, fontWeight: 600 }}>{ps.driver} </span>}
+                {ps.text}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Chunk Card (fallback) ─── */
+
+function ChunkCard({ chunk, index }) {
   const [expanded, setExpanded] = useState(false);
   const ts = TYPE_STYLES[chunk.chunk_type] || { bg: "rgba(255,255,255,0.06)", text: C.muted };
 
   return (
-    <div style={{
+    <div className="source-card" style={{
       border: `1px solid ${C.border}`,
       borderRadius: "8px",
       padding: "0.75rem",
-      background: "rgba(59,224,122,0.03)",
+      background: "rgba(0,212,255,0.03)",
+      animation: `slideInRight 0.3s ease-out ${(index ?? 0) * 0.08}s forwards`,
+      opacity: 0,
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem", flexWrap: "wrap" }}>
         <span style={{
@@ -104,6 +374,50 @@ function ThinkingDots() {
   return <span>{". ".repeat(dot).trim() || "\u00A0".repeat(2)}</span>;
 }
 
+/* ─── Sources Panel ─── */
+
+function SourcesPanel({ sources, loading, lastQuestionType }) {
+  const smartComponent = useMemo(() => {
+    if (!sources || sources.length === 0) return null;
+
+    if (lastQuestionType === "comparison") {
+      return <TireStrategyTimeline sources={sources} />;
+    }
+    if (lastQuestionType === "race_result") {
+      return <PodiumCard sources={sources} />;
+    }
+    if (lastQuestionType === "strategy") {
+      return <PitStopTimeline sources={sources} />;
+    }
+    return null;
+  }, [sources, lastQuestionType]);
+
+  return (
+    <>
+      {smartComponent}
+      {sources.length === 0 && !loading && (
+        <p style={{
+          color: C.muted, fontSize: "0.85rem", textAlign: "center",
+          padding: "3rem 1rem", lineHeight: 1.6,
+        }}>
+          Retrieved sources will appear here after your first question
+        </p>
+      )}
+      {sources.map((chunk, i) => (
+        <ChunkCard key={i} chunk={chunk} index={i} />
+      ))}
+      {loading && (
+        <p style={{
+          color: C.muted, fontSize: "0.75rem", textAlign: "center",
+          fontFamily: "JetBrains Mono, monospace", padding: "2rem 0",
+        }}>
+          Loading chunks...
+        </p>
+      )}
+    </>
+  );
+}
+
 export default function Chat() {
   const navigate = useNavigate();
   const [messages, setMessages] = useState([]);
@@ -112,6 +426,7 @@ export default function Chat() {
   const [sources, setSources] = useState([]);
   const [hasStarted, setHasStarted] = useState(false);
   const [error, setError] = useState("");
+  const [lastQuestionType, setLastQuestionType] = useState(null);
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -140,9 +455,10 @@ export default function Chat() {
       const data = await res.json();
 
       const rawAnswer = data.answer || "";
-      const displayAnswer = rawAnswer.startsWith("[Low confidence") || rawAnswer.startsWith("[Low confidence")
+      let displayAnswer = rawAnswer.startsWith("[Low confidence") || rawAnswer.startsWith("[Low confidence")
         ? rawAnswer.replace(/^\[Low confidence[^\]]*\]\s*/i, "")
         : rawAnswer;
+      displayAnswer = displayAnswer.replace(/\[\d+\]/g, "").trim();
 
       const assistantMsg = {
         role: "assistant",
@@ -153,6 +469,7 @@ export default function Chat() {
         question_type: data.question_type ?? "general",
       };
       setMessages((prev) => [...prev, assistantMsg]);
+      setLastQuestionType(data.question_type ?? "general");
       if (data.sources) setSources(data.sources);
     } catch (e) {
       setError("Could not reach Pitwall API — is the server running?");
@@ -184,7 +501,7 @@ export default function Chat() {
     (msg.rawAnswer ? msg.rawAnswer.includes("[Low confidence") : false);
 
   return (
-    <div style={{
+    <div className="fade-in" style={{
       background: C.bg, color: C.text, minHeight: "100dvh",
       display: "flex", flexDirection: "column",
       fontFamily: "Inter, sans-serif",
@@ -194,7 +511,7 @@ export default function Chat() {
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "1rem 2rem",
         borderBottom: `1px solid ${C.border}`,
-        background: "rgba(10,26,15,0.85)",
+        background: "rgba(17,19,24,0.85)",
         backdropFilter: "blur(12px)",
         position: "relative", zIndex: 10,
       }}>
@@ -210,7 +527,7 @@ export default function Chat() {
         </button>
         {hasStarted && (
           <button
-            onClick={() => { setMessages([]); setSources([]); setHasStarted(false); setError(""); }}
+            onClick={() => { setMessages([]); setSources([]); setHasStarted(false); setError(""); setLastQuestionType(null); }}
             style={{
               fontFamily: "Rajdhani, sans-serif", fontSize: "0.8rem",
               color: C.muted, background: "none",
@@ -270,15 +587,15 @@ export default function Chat() {
             </button>
           </div>
 
-          {/* Suggested questions */}
+          {/* Suggested questions — stagger fade-in */}
           <div style={{
             maxWidth: "640px", width: "100%",
             display: "flex", flexDirection: "column", gap: "0.5rem",
           }}>
-            <p style={{ fontFamily: "JetBrains Mono, monospace", fontSize: "0.7rem", color: C.muted, letterSpacing: "0.05em", marginBottom: "0.25rem" }}>
+            <p className="fade-in" style={{ fontFamily: "JetBrains Mono, monospace", fontSize: "0.7rem", color: C.muted, letterSpacing: "0.05em", marginBottom: "0.25rem" }}>
               TRY ASKING
             </p>
-            {SUGGESTIONS.map((s) => (
+            {SUGGESTIONS.map((s, i) => (
               <button
                 key={s}
                 onClick={() => {
@@ -288,13 +605,14 @@ export default function Chat() {
                 style={{
                   textAlign: "left", padding: "0.6rem 1rem", borderRadius: "8px",
                   border: `1px solid ${C.border}`,
-                  background: "rgba(59,224,122,0.03)",
+                  background: "rgba(0,212,255,0.03)",
                   color: C.muted, fontSize: "0.8rem", cursor: "pointer",
                   fontFamily: "Inter, sans-serif", lineHeight: 1.4,
-                  transition: "background 0.2s, color 0.2s",
+                  animation: `fadeIn 0.6s ease-out ${0.6 + i * 0.1}s forwards`,
+                  opacity: 0,
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(59,224,122,0.08)"; e.currentTarget.style.color = C.text; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(59,224,122,0.03)"; e.currentTarget.style.color = C.muted; }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(0,212,255,0.08)"; e.currentTarget.style.color = C.text; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(0,212,255,0.03)"; e.currentTarget.style.color = C.muted; }}
               >
                 {s}
               </button>
@@ -314,7 +632,9 @@ export default function Chat() {
               {messages.map((msg, i) => {
                 if (msg.role === "user") {
                   return (
-                    <div key={i} style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1.25rem" }}>
+                    <div key={i} className="slide-in-right" style={{
+                      display: "flex", justifyContent: "flex-end", marginBottom: "1.25rem",
+                    }}>
                       <div style={{
                         maxWidth: "75%", padding: "0.75rem 1.1rem", borderRadius: "14px 14px 4px 14px",
                         background: C.userBg, color: C.text, fontSize: "0.9rem", lineHeight: 1.6,
@@ -331,7 +651,7 @@ export default function Chat() {
                 const showWarning = needsWarning(msg);
 
                 return (
-                  <div key={i} style={{ marginBottom: "1.25rem" }}>
+                  <div key={i} className="slide-in-left" style={{ marginBottom: "1.25rem" }}>
                     {showWarning && (
                       <div style={{
                         display: "inline-flex", alignItems: "center", gap: "0.3rem",
@@ -345,8 +665,8 @@ export default function Chat() {
                     )}
                     <div style={{
                       maxWidth: "80%", padding: "0.75rem 1.1rem", borderRadius: "14px 14px 14px 4px",
-                      background: "rgba(59,224,122,0.05)",
-                      border: `1px solid rgba(59,224,122,0.15)`,
+                      background: "rgba(0,212,255,0.05)",
+                      border: `1px solid rgba(0,212,255,0.15)`,
                       color: C.text, fontSize: "0.9rem", lineHeight: 1.6,
                     }}>
                       <ReactMarkdown>{msg.answer}</ReactMarkdown>
@@ -378,9 +698,9 @@ export default function Chat() {
                 <div style={{ marginBottom: "1.25rem" }}>
                   <div style={{
                     maxWidth: "80%", padding: "0.75rem 1.1rem", borderRadius: "14px 14px 14px 4px",
-                    background: "rgba(59,224,122,0.05)",
-                    border: `1px solid rgba(59,224,122,0.15)`,
-                    color: "rgba(59,224,122,0.6)", fontSize: "0.85rem",
+                    background: "rgba(0,212,255,0.05)",
+                    border: `1px solid rgba(0,212,255,0.15)`,
+                    color: "rgba(0,212,255,0.6)", fontSize: "0.85rem",
                     fontFamily: "Inter, sans-serif",
                   }}>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
@@ -447,25 +767,7 @@ export default function Chat() {
               flex: 1, overflowY: "auto", padding: "1rem 1.25rem",
               display: "flex", flexDirection: "column", gap: "0.75rem",
             }}>
-              {sources.length === 0 && !loading && (
-                <p style={{
-                  color: C.muted, fontSize: "0.85rem", textAlign: "center",
-                  padding: "3rem 1rem", lineHeight: 1.6,
-                }}>
-                  Retrieved sources will appear here after your first question
-                </p>
-              )}
-              {sources.map((chunk, i) => (
-                <ChunkCard key={i} chunk={chunk} />
-              ))}
-              {loading && (
-                <p style={{
-                  color: C.muted, fontSize: "0.75rem", textAlign: "center",
-                  fontFamily: "JetBrains Mono, monospace", padding: "2rem 0",
-                }}>
-                  Loading chunks...
-                </p>
-              )}
+              <SourcesPanel sources={sources} loading={loading} lastQuestionType={lastQuestionType} />
             </div>
           </div>
         </div>

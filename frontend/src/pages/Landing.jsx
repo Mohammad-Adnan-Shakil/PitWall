@@ -44,22 +44,22 @@ const DIFF_POINTS = [
 ];
 
 const S = {
-  bg: "#0A1A0F",
-  accent: "#3BE07A",
+  bg: "#111318",
+  accent: "#00D4FF",
   text: "#F0F0F0",
   muted: "#9CA3AF",
-  border: "rgba(59,224,122,0.12)",
+  border: "rgba(0,212,255,0.12)",
 };
 
 export default function Landing() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen" style={{ background: S.bg, color: S.text, fontFamily: "Inter, sans-serif", letterSpacing: "0.02em" }}>
+    <div className="min-h-screen fade-in" style={{ background: S.bg, color: S.text, fontFamily: "Inter, sans-serif", letterSpacing: "0.02em" }}>
 
       {/* ─── Nav ─── */}
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 py-4"
-        style={{ background: "rgba(10,26,15,0.85)", backdropFilter: "blur(12px)", borderBottom: `1px solid ${S.border}` }}>
+        style={{ background: "rgba(17,19,24,0.85)", backdropFilter: "blur(12px)", borderBottom: `1px solid ${S.border}` }}>
         <span style={{ fontFamily: "Rajdhani, sans-serif", fontWeight: 700, fontSize: "1.25rem", letterSpacing: "0.15em", color: S.accent }}>
           PITWALL
         </span>
@@ -83,20 +83,20 @@ export default function Landing() {
         {/* Vignette overlay */}
         <div style={{
           position: "absolute", inset: 0,
-          background: "radial-gradient(ellipse at center, transparent 40%, rgba(10,26,15,0.7) 100%)",
+          background: "radial-gradient(ellipse at center, transparent 40%, rgba(17,19,24,0.7) 100%)",
           pointerEvents: "none", zIndex: 2,
         }} />
 
         {/* Timing split line */}
         <div style={{
           position: "absolute", left: 0, right: 0, top: "50%", height: 0, zIndex: 2,
-          borderTop: "1px solid rgba(59,224,122,0.2)",
+          borderTop: "1px solid rgba(0,212,255,0.2)",
           pointerEvents: "none",
         }} />
 
         <div className="relative z-10 max-w-4xl mx-auto" style={{ position: "relative", zIndex: 3 }}>
           <div className="inline-flex items-center gap-2 mb-6 px-3 py-1 rounded-full"
-            style={{ border: `1px solid rgba(59,224,122,0.3)`, background: "rgba(59,224,122,0.08)", fontSize: "0.75rem", letterSpacing: "0.1em", color: S.accent }}>
+            style={{ border: `1px solid rgba(0,212,255,0.3)`, background: "rgba(0,212,255,0.08)", fontSize: "0.75rem", letterSpacing: "0.1em", color: S.accent }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: S.accent, display: "inline-block" }} />
             84,174 CHUNKS · 70 RACES · 3 SEASONS
           </div>
@@ -150,7 +150,7 @@ export default function Landing() {
               padding: "1.5rem", borderRadius: "8px",
               border: `1px solid ${S.border}`,
               borderLeft: `3px solid ${S.accent}`,
-              background: "rgba(59,224,122,0.03)",
+              background: "rgba(0,212,255,0.03)",
               position: "relative", overflow: "hidden",
               transition: "background 0.25s, border-color 0.25s",
             }}>
@@ -166,7 +166,7 @@ export default function Landing() {
               <p style={{ color: S.muted, fontSize: "0.9rem", lineHeight: 1.6, position: "relative" }}>{item.desc}</p>
               <style>{`
                 .group:hover {
-                  background: rgba(59,224,122,0.07) !important;
+                  background: rgba(0,212,255,0.07) !important;
                   border-left-color: ${S.accent} !important;
                 }
               `}</style>
@@ -176,7 +176,7 @@ export default function Landing() {
       </section>
 
       {/* ─── What makes it different ─── */}
-      <section id="what-makes-it-different" style={{ padding: "8rem 2rem", background: "rgba(59,224,122,0.03)", borderTop: `1px solid ${S.border}` }}>
+      <section id="what-makes-it-different" style={{ padding: "8rem 2rem", background: "rgba(0,212,255,0.03)", borderTop: `1px solid ${S.border}` }}>
         <div className="max-w-5xl mx-auto">
           <p style={{ fontFamily: "Rajdhani, sans-serif", color: S.accent, fontSize: "0.75rem", letterSpacing: "0.2em", marginBottom: "1rem" }}>WHY PITWALL</p>
           <h2 style={{ fontFamily: "Rajdhani, sans-serif", fontWeight: 700, fontSize: "clamp(2rem, 5vw, 3rem)", marginBottom: "4rem" }}>
@@ -188,7 +188,7 @@ export default function Landing() {
                 <span style={{
                   display: "inline-flex", alignItems: "center", justifyContent: "center",
                   minWidth: "2rem", height: "2rem", marginTop: "2px",
-                  borderRadius: "999px", background: "rgba(59,224,122,0.12)",
+                  borderRadius: "999px", background: "rgba(0,212,255,0.12)",
                   color: S.accent, fontSize: "1rem", fontFamily: "sans-serif",
                 }}>▸</span>
                 <div>
@@ -200,13 +200,13 @@ export default function Landing() {
                         <span style={{
                           fontFamily: "JetBrains Mono, monospace", fontSize: "0.7rem",
                           color: S.accent, padding: "0.15rem 0.5rem", borderRadius: "4px",
-                          border: `1px solid ${S.border}`, background: "rgba(59,224,122,0.06)",
+                          border: `1px solid ${S.border}`, background: "rgba(0,212,255,0.06)",
                           letterSpacing: "0.02em",
                         }}>Faithfulness: 0.815</span>
                         <span style={{
                           fontFamily: "JetBrains Mono, monospace", fontSize: "0.7rem",
                           color: S.accent, padding: "0.15rem 0.5rem", borderRadius: "4px",
-                          border: `1px solid ${S.border}`, background: "rgba(59,224,122,0.06)",
+                          border: `1px solid ${S.border}`, background: "rgba(0,212,255,0.06)",
                           letterSpacing: "0.02em",
                         }}>Context precision: 0.812</span>
                       </span>
@@ -243,7 +243,7 @@ export default function Landing() {
         <a href="https://github.com/Mohammad-Adnan-Shakil/PitWall" style={{ color: "#4B5563", textDecoration: "none" }} className="hover:text-white transition-colors">GitHub →</a>
         <style>{`
           .pitwall-logo:hover {
-            text-shadow: 0 0 12px ${S.accent}, 0 0 24px rgba(59,224,122,0.4);
+            text-shadow: 0 0 12px ${S.accent}, 0 0 24px rgba(0,212,255,0.4);
           }
         `}</style>
       </footer>
