@@ -4,13 +4,16 @@ import time
 from typing import TypedDict
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph, END
-from groq import Groq
+from openai import OpenAI
 from retrieval import retrieve, retrieve_race_summary
 from generate import build_context, SYSTEM_PROMPT
 
 load_dotenv()
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+client = OpenAI(
+    api_key=os.getenv("OPENROUTER_API_KEY"),
+    base_url="https://openrouter.ai/api/v1",
+)
 
 # ─── Driver Map ───────────────────────────────────────────────────────────────
 
@@ -219,7 +222,7 @@ def generate_node(state: PitwallState) -> PitwallState:
 Question: {question}"""
 
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="nvidia/nemotron-3-ultra-550b-a55b:free",
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
@@ -256,7 +259,7 @@ Reply with ONLY one of:
 - "UNFAITHFUL: <brief reason>" if the answer contains unsupported claims"""
 
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="nvidia/nemotron-3-ultra-550b-a55b:free",
         messages=[{"role": "user", "content": check_prompt}],
         temperature=0.0,
     )

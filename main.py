@@ -14,6 +14,13 @@ app = FastAPI(
     version="1.0.0"
 )
 
+@app.on_event("startup")
+async def startup_event():
+    # Pre-load the embedding model so first query isn't slow
+    from retrieval import get_model
+    get_model()
+    print("Embedding model loaded and ready.")
+
 # ─── CORS ────────────────────────────────────────────────────────────────────
 # Allow React frontend to call this API
 app.add_middleware(

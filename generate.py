@@ -2,12 +2,15 @@ import os
 import time
 import re
 from dotenv import load_dotenv
-from groq import Groq
+from openai import OpenAI
 from retrieval import retrieve
 
 load_dotenv()
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+client = OpenAI(
+    api_key=os.getenv("OPENROUTER_API_KEY"),
+    base_url="https://openrouter.ai/api/v1",
+)
 
 SYSTEM_PROMPT = """You are Pitwall, an F1 data assistant. Answer the user's question using ONLY the information in the provided context below.
 
@@ -40,7 +43,7 @@ def answer_question(question, k=5):
 Question: {question}"""
 
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="nvidia/nemotron-3-ultra-550b-a55b:free",
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},

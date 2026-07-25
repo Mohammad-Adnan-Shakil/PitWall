@@ -99,7 +99,7 @@ function FadeSection({ children, className, style: extStyle, ...props }) {
     return () => obs.disconnect();
   }, []);
   return (
-    <div ref={ref} className={className} style={{ opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(40px)", transition: "opacity 0.6s ease, transform 0.6s ease", ...extStyle }} {...props}>
+    <div ref={ref} className={className} style={{ opacity: visible ? 1 : 0.3, transform: visible ? "translateY(0)" : "translateY(15px)", transition: "opacity 0.6s ease, transform 0.6s ease", ...extStyle }} {...props}>
       {children}
     </div>
   );
