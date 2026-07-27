@@ -14,7 +14,7 @@ const C = {
 };
 
 const STATS = [
-  { value: 84174, label: "Embedded Chunks" },
+  { value: 85930, label: "Embedded Chunks" },
   { value: 70, label: "Races Indexed" },
   { value: 3, label: "Seasons (2023\u20132025)" },
   { value: 0.815, label: "Faithfulness Score", decimals: 3 },
