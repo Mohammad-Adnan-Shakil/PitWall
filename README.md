@@ -1,9 +1,16 @@
-markdown
-# Pitwall
+# Pitwall — Agentic RAG for Formula 1
+
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat-square&logo=fastapi&logoColor=white)
+![LangGraph](https://img.shields.io/badge/LangGraph-Agent-000000?style=flat-square&logo=langchain&logoColor=white)
+![pgvector](https://img.shields.io/badge/pgvector-Neon-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)
+![Render](https://img.shields.io/badge/Deployed-Render-46E3B7?style=flat-square&logo=render&logoColor=white)
+![Vercel](https://img.shields.io/badge/Deployed-Vercel-000000?style=flat-square&logo=vercel&logoColor=white)
 
 **Live demo**: [pit-wall-lemon.vercel.app](https://pit-wall-lemon.vercel.app)
 
-Pitwall is an agentic RAG (Retrieval-Augmented Generation) system that answers questions about Formula 1 races, strategy, and telemetry — grounded in real race data, not model memory.
+Pitwall is an agentic RAG system that answers questions about Formula 1 races, strategy, and telemetry — grounded in real race data, not model memory.
 
 Instead of a fixed retrieve-then-generate pipeline, Pitwall uses a LangGraph agent that classifies your question, decides what to retrieve, evaluates whether what it retrieved is sufficient, retrieves again if not, generates a grounded answer, and self-checks for hallucinations before responding.
 
@@ -23,7 +30,7 @@ Instead of a fixed retrieve-then-generate pipeline, Pitwall uses a LangGraph age
 
 ---
 
-## What it does
+## What It Does
 
 Ask Pitwall anything about F1 strategy, lap times, pit stops, race results, or weather — and it returns a grounded answer with the exact source chunks it used, rendered as visual data panels:
 
@@ -66,7 +73,7 @@ Return: answer + sources + question_type + retrieval_attempts + latency_ms
 
 ---
 
-## Tech stack
+## Tech Stack
 
 | Layer | Technology |
 |---|---|
@@ -83,7 +90,7 @@ Return: answer + sources + question_type + retrieval_attempts + latency_ms
 
 ---
 
-## Knowledge base
+## Knowledge Base
 
 | Season | Races | Chunks |
 |---|---|---|
@@ -98,7 +105,7 @@ Ingestion is idempotent — re-running for any season clears and rebuilds only t
 
 ---
 
-## Evaluation results
+## Evaluation Results
 
 Evaluated on a 30-question test set spanning factual lookups, race winners, driver strategy comparisons, tire/pit-stop questions, weather inference, and out-of-scope questions.
 
@@ -112,22 +119,7 @@ Every metric improved with the agentic layer. The largest gains are in faithfuln
 
 ---
 
-## Project status
-
-- [x] Phase 1 — Theory (10-topic RAG curriculum)
-- [x] Step 1 — Environment setup
-- [x] Step 2 — Data pipeline (FastF1 ingestion, chunking, embedding, pgvector storage)
-- [x] Step 3 — Basic RAG baseline
-- [x] Step 4 — Agentic layer (LangGraph)
-- [x] Step 5 — RAGAS evaluation
-- [x] Step 6 — FastAPI service layer
-- [x] Step 7 — React frontend
-- [x] Step 8 — Deployment (Render + Vercel)
-- [x] Step 9 — Documentation
-
----
-
-## Engineering notes
+## Engineering Notes
 
 **Why fastembed instead of sentence-transformers**: The original implementation used `sentence-transformers` with PyTorch, which requires ~400MB RAM just to load the model. Render's free tier provides 512MB total — not enough. Switched to `fastembed` which uses ONNX runtime and loads the same `bge-small-en-v1.5` model at ~66MB, fitting comfortably within the free tier limit.
 
@@ -154,10 +146,11 @@ python -m pip install -r requirements.txt
 
 Create a `.env` file in the project root (see `.env.example`):
 
+```env
 PITWALL_DB_URL=your_neon_postgres_connection_string
 GROQ_API_KEY=your_groq_api_key
 GOOGLE_API_KEY=your_google_ai_studio_key
-
+```
 
 Run the API:
 ```bash
@@ -175,4 +168,7 @@ npm run dev
 
 ## Author
 
-Mohammad Adnan Shakil — [GitHub](https://github.com/Mohammad-Adnan-Shakil)
+**Mohammad Adnan Shakil**
+CSE Student, Presidency University, Bengaluru
+
+[GitHub](https://github.com/Mohammad-Adnan-Shakil) · [LinkedIn](https://linkedin.com/in/mohammadadnanshakil)
